@@ -5,11 +5,22 @@
 xcb_connection_t *conn;
 xcb_screen_t *screen;
 
+uint16_t x;
+uint16_t y;
+ 
 // Counts the number of clients
 uint8_t count ;
 
 // Arrays of clients
-xcb_window_t client[2];
+xcb_window_t client[2]; 
+/** I think I will struct the client for better For now testing the functions
+    struct client {
+    uint16_t x;
+    uint16_t y;
+    uint16_t height;
+    uint16_t width;
+    } client;
+**/
 
 void resize(xcb_window_t win, uint16_t w, uint16_t h)
 {
@@ -33,7 +44,7 @@ void draw(xcb_window_t win) {
 
 void border(xcb_window_t win, uint16_t width )
 {
-    uint16_t borderColor = 123452;
+    uint32_t borderColor = 123452;
     uint32_t borderWidth[1] = { width };
     xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, borderWidth);
     xcb_change_window_attributes(conn, win, XCB_CW_BORDER_PIXEL, &borderColor);
@@ -50,8 +61,6 @@ void manageClient(xcb_map_request_event_t *ev)
 {
     uint16_t sHeight = screen->height_in_pixels;
     uint16_t sWidth = screen->width_in_pixels;
-    uint8_t x = 20;
-    uint8_t y = 20;
     uint8_t bWidth = 4;
     uint16_t height = sHeight-28;
     uint16_t width = sWidth-28;
@@ -66,13 +75,24 @@ void manageClient(xcb_map_request_event_t *ev)
     }
     else if(count == 1)
     {
-        width = (sWidth/2) - 20;
+        width = width/2;
         resize(client[0],width,height);
         border(client[0],0);
-        //xcb_flush(conn);
 
         x = x + width + 20;
-        move(ev->window,700,y);
+        move(ev->window,x,y);
+        resize(ev->window,width,height);
+        border(ev->window,bWidth);
+        xcb_flush(conn);
+    }
+    else if(count == 2)
+    {
+        height = height/2;
+        resize(client[1],width,height);
+        border(client[1],0);
+
+        y=y+height+20;
+        move(ev->window,x,y);
         resize(ev->window,width,height);
         border(ev->window,bWidth);
         xcb_flush(conn);
@@ -89,19 +109,51 @@ void manageClient(xcb_map_request_event_t *ev)
     focus(ev->window);
 }
 
+void keyHandler(xcb_key_press_event_t *key)
+{
+    resize(client[0],200,200);
+    xcb_flush(conn);
+    uint32_t keyCode = key->detail;
+    //50 shift 37 ctrl
+    //Right
+    if(keyCode == 50)
+    {
+        resize(client[0],200,200);
+        xcb_flush(conn);
+    }
+    // Down
+    else if(keyCode == 37)
+    {
+        resize(client[0],500,500);
+        xcb_flush(conn);
+    }
+    //Left
+    else if(keyCode == 116)
+    {
+        resize(client[0],1000,700);
+        xcb_flush(conn);
+    }
+}
+
 void eventHandler()
 {
     xcb_generic_event_t *eve;
     while(1) 
     {
         if((eve=xcb_wait_for_event(conn))) {
-           switch(eve->response_type & ~0x80) {
+            switch(eve->response_type & ~0x80) {
                 // listen for application /window opening event
                 case XCB_MAP_REQUEST: {
                     xcb_map_request_event_t *e = (xcb_map_request_event_t *)eve;
                     client[count] = e->window;
                     manageClient(e);
                 } break;
+                case XCB_KEY_PRESS: {
+                    xcb_key_press_event_t *e = (xcb_key_press_event_t *)eve;
+                    //   <-113    114 ->
+                    //   down 116 111 up  |^|
+                    keyHandler(e);
+                }
                 default: {
                          printf("To do");
                  } break;
@@ -117,10 +169,14 @@ int main()
     conn = xcb_connect(NULL,NULL);
     screen = xcb_setup_roots_iterator(xcb_get_setup(conn)).data;
     count = 0;
+    x=10;
+    y=10;
     
     // For managing child windows need to add some mask to root-window
     uint32_t values[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY 
-                | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT};
+        | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_KEY_PRESS 
+        | XCB_EVENT_MASK_BUTTON_PRESS} ;
+ 
     xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, values);
     // Force to change effects
     xcb_flush(conn);
