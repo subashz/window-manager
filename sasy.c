@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <xcb/xcb.h>
 
+typedef struct client client;
+
 xcb_connection_t *conn;
 xcb_screen_t *screen;
 
@@ -11,35 +13,33 @@ uint16_t y;
 // Counts the number of clients
 uint8_t count ;
 
-// Arrays of clients
-xcb_window_t client[2]; 
-/** I think I will struct the client for better For now testing the functions
-    struct client {
+// Define the struct
+struct client {
+    xcb_window_t win;
     uint16_t x;
     uint16_t y;
     uint16_t height;
     uint16_t width;
-    } client;
-**/
+} ;
+
+//  Creates clientList
+client clientList[3];
 
 void resize(xcb_window_t win, uint16_t w, uint16_t h)
 {
     uint32_t values[2] = {w,h};
     xcb_configure_window(conn,win,XCB_CONFIG_WINDOW_WIDTH
              | XCB_CONFIG_WINDOW_HEIGHT, values);
-    //xcb_flush(conn);
 } 
 void move(xcb_window_t win, uint16_t x, uint16_t y  )
 {
     uint32_t values[2] = {x, y};
     xcb_configure_window(conn,win,XCB_CONFIG_WINDOW_X
             | XCB_CONFIG_WINDOW_Y,values); 
-    //xcb_flush(conn);
 }
 
 void draw(xcb_window_t win) {
     xcb_map_window(conn, win);
-    //xcb_flush(conn);
 }
 
 void border(xcb_window_t win, uint16_t width )
@@ -48,13 +48,11 @@ void border(xcb_window_t win, uint16_t width )
     uint32_t borderWidth[1] = { width };
     xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, borderWidth);
     xcb_change_window_attributes(conn, win, XCB_CW_BORDER_PIXEL, &borderColor);
-    //xcb_flush(conn);
 }
 
 void focus(xcb_window_t win)
 {
     xcb_set_input_focus(conn, XCB_INPUT_FOCUS_POINTER_ROOT,win,XCB_CURRENT_TIME);
-    //xcb_flush(conn);
 }
 
 void manageClient(xcb_map_request_event_t *ev)
@@ -150,10 +148,19 @@ void eventHandler()
                 } break;
                 case XCB_KEY_PRESS: {
                     xcb_key_press_event_t *e = (xcb_key_press_event_t *)eve;
+                    xcb_key_sym_t keysym = xcb_key_symbols_get_keysym(e->detail);
+                    if(keysym == "MOD4")
+                        resize(eve->window,400,400);
                     //   <-113    114 ->
                     //   down 116 111 up  |^|
-                    keyHandler(e);
+                    //keyHandler(e);
                 }
+                case XCB_DESTROY_NOTIFY: {
+                    xcb_destroy_notify_event_t *ev = (xcb_destory_notify_event_t *)eve;
+                // Do something 
+                // evnet receive garxa.. window destroy huda yo event pauxa
+                    printf("Window is destroying");
+                 }
                 default: {
                          printf("To do");
                  } break;
