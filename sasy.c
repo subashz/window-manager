@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <xcb/xcb.h>
 
-typedef struct client client;
-
 xcb_connection_t *conn;
 xcb_screen_t *screen;
 
@@ -13,33 +11,27 @@ uint16_t y;
 // Counts the number of clients
 uint8_t count ;
 
-// Define the struct
-struct client {
-    xcb_window_t win;
-    uint16_t x;
-    uint16_t y;
-    uint16_t height;
-    uint16_t width;
-} ;
-
-//  Creates clientList
-client clientList[3];
+// Arrays of clients
+xcb_window_t client[2]; 
 
 void resize(xcb_window_t win, uint16_t w, uint16_t h)
 {
     uint32_t values[2] = {w,h};
     xcb_configure_window(conn,win,XCB_CONFIG_WINDOW_WIDTH
              | XCB_CONFIG_WINDOW_HEIGHT, values);
+    //xcb_flush(conn);
 } 
 void move(xcb_window_t win, uint16_t x, uint16_t y  )
 {
     uint32_t values[2] = {x, y};
     xcb_configure_window(conn,win,XCB_CONFIG_WINDOW_X
             | XCB_CONFIG_WINDOW_Y,values); 
+    //xcb_flush(conn);
 }
 
 void draw(xcb_window_t win) {
     xcb_map_window(conn, win);
+    //xcb_flush(conn);
 }
 
 void border(xcb_window_t win, uint16_t width )
@@ -48,11 +40,13 @@ void border(xcb_window_t win, uint16_t width )
     uint32_t borderWidth[1] = { width };
     xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, borderWidth);
     xcb_change_window_attributes(conn, win, XCB_CW_BORDER_PIXEL, &borderColor);
+    //xcb_flush(conn);
 }
 
 void focus(xcb_window_t win)
 {
     xcb_set_input_focus(conn, XCB_INPUT_FOCUS_POINTER_ROOT,win,XCB_CURRENT_TIME);
+    //xcb_flush(conn);
 }
 
 void manageClient(xcb_map_request_event_t *ev)
@@ -107,32 +101,6 @@ void manageClient(xcb_map_request_event_t *ev)
     focus(ev->window);
 }
 
-void keyHandler(xcb_key_press_event_t *key)
-{
-    resize(client[0],200,200);
-    xcb_flush(conn);
-    uint32_t keyCode = key->detail;
-    //50 shift 37 ctrl
-    //Right
-    if(keyCode == 50)
-    {
-        resize(client[0],200,200);
-        xcb_flush(conn);
-    }
-    // Down
-    else if(keyCode == 37)
-    {
-        resize(client[0],500,500);
-        xcb_flush(conn);
-    }
-    //Left
-    else if(keyCode == 116)
-    {
-        resize(client[0],1000,700);
-        xcb_flush(conn);
-    }
-}
-
 void eventHandler()
 {
     xcb_generic_event_t *eve;
@@ -146,21 +114,6 @@ void eventHandler()
                     client[count] = e->window;
                     manageClient(e);
                 } break;
-                case XCB_KEY_PRESS: {
-                    xcb_key_press_event_t *e = (xcb_key_press_event_t *)eve;
-                    xcb_key_sym_t keysym = xcb_key_symbols_get_keysym(e->detail);
-                    if(keysym == "MOD4")
-                        resize(eve->window,400,400);
-                    //   <-113    114 ->
-                    //   down 116 111 up  |^|
-                    //keyHandler(e);
-                }
-                case XCB_DESTROY_NOTIFY: {
-                    xcb_destroy_notify_event_t *ev = (xcb_destory_notify_event_t *)eve;
-                // Do something 
-                // evnet receive garxa.. window destroy huda yo event pauxa
-                    printf("Window is destroying");
-                 }
                 default: {
                          printf("To do");
                  } break;
@@ -181,9 +134,7 @@ int main()
     
     // For managing child windows need to add some mask to root-window
     uint32_t values[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY 
-        | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_KEY_PRESS 
-        | XCB_EVENT_MASK_BUTTON_PRESS} ;
- 
+                | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT};
     xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, values);
     // Force to change effects
     xcb_flush(conn);
